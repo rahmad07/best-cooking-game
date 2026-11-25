@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sizzle &amp; Serve — Rush Hour Kitchen</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #17100b; }
+  body { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; color: #f5e6c8; }
+  #viewport { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  #stage { position: relative; width: 1280px; height: 720px; flex: 0 0 auto; background: linear-gradient(#3a2418, #2b1a12); overflow: hidden; transform-origin: center center; }
+  .section-title { font-size: 12px; letter-spacing: 1px; font-weight: bold; color: #f2c230; margin-bottom: 6px; text-transform: uppercase; }
+
+  /* ---- HUD ---- */
+  #hud { display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 14px; background: #1d130d; border-bottom: 3px solid #e4572e; }
+  .brand { font-size: 22px; font-weight: bold; color: #ffd97a; white-space: nowrap; }
+  .brand .sub { display: block; font-size: 10px; letter-spacing: 2px; color: #e4572e; }
+  .stat { background: #33231a; border: 1px solid #5a3d28; border-radius: 8px; padding: 4px 10px; text-align: center; min-width: 64px; }
+  .stat .k { display: block; font-size: 9px; letter-spacing: 1px; color: #c9a86a; }
+  .stat .v { font-size: 17px; font-weight: bold; color: #fff; }
+  .stat .v.urgent { color: #ff5a3c; animation: blink 0.8s infinite; }
+  @keyframes blink { 50% { opacity: 0.4; } }
+  .stat.lives .v { color: #ff6b81; letter-spacing: 2px; }
+  .stat.lives .v.low { color: #ff2e2e; animation: blink 0.8s infinite; }
+  .hud-btns { margin-left: auto; display: flex; gap: 6px; }
+  .hud-btns button { width: 34px; height: 34px; font-size: 17px; background: #33231a; color: #ffd97a; border: 1px solid #5a3d28; border-radius: 8px; cursor: pointer; }
+  .hud-btns button:hover { background: #4a3222; }
+
+  #rush-banner { display: none; position: absolute; top: 58px; left: 0; right: 0; z-index: 5; text-align: center; font-size: 18px; font-weight: bold; color: #1d130d; background: #f2c230; padding: 4px; }
+  #rush-banner.on { display: block; animation: blink 0.7s infinite; }
+
+  /* ---- Order board ---- */
+  #orders { padding: 8px 14px 4px; }
+  #order-cards { display: flex; gap: 10px; min-height: 96px; }
+  .no-orders { color: #c9a86a; font-style: italic; padding: 30px 10px; }
+  .customer { flex: 1; display: flex; gap: 10px; background: #4a2c1c; border: 2px solid #6b4426; border-radius: 10px; padding: 8px; cursor: pointer; }
+  .customer.mood-impatient { border-color: #f2a230; }
+  .customer.mood-angry { border-color: #d84a35; background: #5a2418; }
+  .customer.servable { border-color: #7ed957; box-shadow: 0 0 14px #7ed957; animation: pulse 0.9s infinite; cursor: pointer; }
+  @keyframes pulse { 50% { box-shadow: 0 0 4px #7ed957; } }
+  .face { position: relative; width: 54px; height: 54px; flex: 0 0 auto; border-radius: 50%; border: 2px solid rgba(0,0,0,0.25); }
+  .face .eyes { position: absolute; top: 14px; left: 0; right: 0; text-align: center; font-size: 15px; letter-spacing: 4px; color: #222; }
+  .face .mouth { position: absolute; left: 17px; bottom: 10px; width: 20px; height: 10px; border-bottom: 3px solid #222; border-radius: 0 0 20px 20px; }
+  .mood-impatient .face .mouth { border-bottom: none; border-top: 3px solid #222; border-radius: 20px 20px 0 0; bottom: 8px; }
+  .mood-angry .face .mouth { border-bottom: none; border-top: 3px solid #222; border-radius: 20px 20px 0 0; bottom: 8px; }
+  .mood-ok .face .mouth { height: 0; border-bottom: 3px solid #222; border-radius: 0; bottom: 16px; }
+  .cust-main { flex: 1; min-width: 0; }
+  .cust-name { font-size: 14px; font-weight: bold; color: #fff; }
+  .cust-dish { color: #ffd97a; font-weight: normal; }
+  .cust-comps { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+  .patience { height: 10px; background: #241610; border-radius: 5px; overflow: hidden; }
+  .patience-fill { height: 100%; transition: width 0.2s linear; }
+  .patience-fill.good { background: #5da244; }
+  .patience-fill.warn { background: #f2a230; }
+  .patience-fill.bad { background: #d84a35; }
+  .cust-note { font-size: 11px; color: #c9a86a; margin-top: 3px; }
+  .customer.servable .cust-note { color: #7ed957; font-weight: bold; }
+
+  /* ---- Kitchen ---- */
+  #kitchen { padding: 2px 14px 0; }
+  #bin-row { display: flex; gap: 8px; }
+  .bin { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px 4px; background: #33231a; border: 2px solid #6b4426; border-radius: 10px; cursor: pointer; color: #f5e6c8; font-family: inherit; }
+  .bin:hover { background: #4a3222; border-color: #f2c230; }
+  .bin-label { font-size: 13px; font-weight: bold; }
+  .bin-station { font-size: 10px; color: #c9a86a; }
+  #stations { display: flex; gap: 10px; margin-top: 8px; }
+  .station { flex: 1; background: #241610; border: 2px solid #5a3d28; border-radius: 10px; padding: 8px; min-height: 132px; }
+  .station.plate-station { flex: 1.5; }
+  .st-name { font-size: 12px; font-weight: bold; letter-spacing: 0.5px; color: #ffd97a; margin-bottom: 6px; }
+  .st-slot { min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; background: #17100b; border-radius: 8px; padding: 6px; }
+  .st-slot .empty { color: #8a6a4a; font-size: 12px; font-style: italic; }
+  .slot-label { font-size: 12px; font-weight: bold; color: #fff; }
+  .st-bar { position: relative; height: 12px; background: #17100b; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+  .st-fill { height: 100%; width: 0%; background: #e4572e; transition: width 0.1s linear; }
+  .st-perfect { position: absolute; top: 0; bottom: 0; background: rgba(126, 217, 87, 0.55); z-index: 1; }
+  .st-status { font-size: 11px; color: #c9a86a; margin-top: 5px; min-height: 14px; }
+  .station.ready { border-color: #7ed957; }
+  .station.ready .st-status { color: #7ed957; font-weight: bold; }
+  .station.burnt { border-color: #d84a35; }
+  .station.burnt .st-status { color: #ff8a70; font-weight: bold; }
+  .shelf-item { background: transparent; border: 1px solid #5a3d28; border-radius: 8px; padding: 4px; cursor: pointer; font-family: inherit; }
+  .shelf-item:hover { border-color: #7ed957; background: #2c2118; }
+  #btn-clear { font-family: inherit; font-size: 11px; background: #5a2418; color: #ffd0c0; border: 1px solid #8a4a3a; border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  #btn-clear:hover { background: #7a2f1e; }
+
+  /* food chips */
+  .chip { display: inline-flex; align-items: center; gap: 4px; background: #17100b; border: 1px solid #5a3d28; border-radius: 12px; padding: 2px 7px 2px 3px; font-size: 11px; color: #fff; }
+  .chip.perfect { border-color: #7ed957; box-shadow: 0 0 6px rgba(126,217,87,0.6); }
+  .chip-label { white-space: nowrap; }
+  .shape { display: inline-block; width: 20px; height: 20px; flex: 0 0 auto; }
+  .shape.big { width: 32px; height: 32px; }
+  .shape-bun { border-radius: 50% 50% 6px 6px; height: 16px; margin-top: 2px; }
+  .shape-patty { border-radius: 5px; height: 12px; margin-top: 4px; }
+  .shape-steak { border-radius: 7px; height: 16px; border: 2px solid rgba(0,0,0,0.3); }
+  .shape-leaf { border-radius: 60% 5% 60% 5%; }
+  .shape-round { border-radius: 50%; }
+  .shape-slice { clip-path: polygon(0 100%, 50% 0, 100% 100%); }
+
+  /* ---- Bottom: menu + feed ---- */
+  #bottom { display: flex; gap: 12px; padding: 8px 14px 10px; }
+  #menu { flex: 1.6; }
+  #menu-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .menu-card { background: #33231a; border: 1px solid #5a3d28; border-radius: 10px; padding: 7px 9px; }
+  .menu-name { font-size: 13px; font-weight: bold; color: #fff; }
+  .menu-price { float: right; color: #f2c230; font-size: 12px; }
+  .menu-comps { display: flex; flex-wrap: wrap; gap: 4px; margin: 5px 0; }
+  .menu-blurb { font-size: 11px; color: #c9a86a; font-style: italic; }
+  #side { flex: 1; display: flex; flex-direction: column; }
+  #feed { flex: 1; }
+  #feed-lines { background: #17100b; border: 1px solid #3a2a1e; border-radius: 8px; padding: 6px 8px; min-height: 74px; font-size: 12px; }
+  .feed-line { padding: 1px 0; color: #e8d5b0; }
+  .feed-line.serve { color: #7ed957; font-weight: bold; }
+  .feed-line.perfect { color: #ffd97a; font-weight: bold; }
+  .feed-line.bad { color: #ff8a70; }
+  .feed-line.warn { color: #f2a230; }
+  .feed-line.rush { color: #f2c230; font-weight: bold; }
+  #help { margin-top: 8px; font-size: 11px; line-height: 1.45; color: #c9a86a; background: #241610; border: 1px solid #3a2a1e; border-radius: 8px; padding: 6px 9px; }
+  #help b { color: #ffd97a; }
+
+  /* ---- Overlays ---- */
+  .overlay { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(15, 8, 5, 0.72); }
+  .overlay.hidden { display: none; }
+  .panel { width: 640px; max-width: 92%; background: #2b1a12; border: 3px solid #e4572e; border-radius: 16px; padding: 24px 30px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+  .panel h1 { margin: 0; font-size: 40px; color: #ffd97a; letter-spacing: 1px; }
+  .panel h2 { margin: 2px 0 0; font-size: 18px; color: #e4572e; letter-spacing: 4px; }
+  .panel .tag { color: #c9a86a; font-style: italic; margin: 8px 0 14px; }
+  .rules { text-align: left; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .rules b { color: #ffd97a; }
+  .big { font-family: inherit; font-size: 20px; font-weight: bold; background: #e4572e; color: #fff; border: none; border-radius: 12px; padding: 12px 34px; cursor: pointer; letter-spacing: 1px; }
+  .big:hover { background: #f26a3d; }
+  .best { margin-top: 12px; font-size: 13px; color: #c9a86a; letter-spacing: 1px; }
+  .stats { text-align: left; margin: 0 auto 16px; max-width: 420px; }
+  .stat-row { display: flex; justify-content: space-between; font-size: 15px; padding: 5px 0; border-bottom: 1px dashed #5a3d28; }
+  .stat-row b { color: #ffd97a; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage"></div></div>
+<script>
+  // Fit the fixed 1280x720 stage into any window, keeping its aspect ratio.
+  function fit() {
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    document.getElementById('stage').style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
